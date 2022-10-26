@@ -1,0 +1,244 @@
+---
+title: "Homework 1"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+by: Emily 
+
+## Problem 1 CH2 ISLR p.9
+```{r}
+#reading in data
+AutoData=read.csv('/Users/admin/Documents/Csvv/Auto.csv',header=TRUE)
+
+```
+
+```{r}
+#looking at the type of data we have for each variable
+lapply(AutoData, class)
+```
+
+The data set has Horsepower characterized as a char because of the "?", so we convert it to numeric and omit the NAs.   
+
+```{r}
+#Converting into Numeric to get NAs and subsetting No Na data 
+AutoData$horsepower=as.numeric(AutoData$horsepower)
+AutoNew=na.omit(AutoData)
+```
+AutoNew is the modified data set we will be using. 
+
+<br>
+
+**(a)**  
+```{r}
+#attaching new data
+attach(AutoNew)
+lapply(AutoNew,class)
+```
+Quantitative predictors include mpg,displacement,horsepower, weight, year, and origin. Qualitative includes the name of the Auto, and cylinders. 
+
+<br>
+
+**(b)**  
+```{r}
+# Finding range for each variable
+range(mpg)
+range(displacement)
+range(horsepower)
+range(weight)
+range(acceleration)
+range(year)
+range(origin)
+```
+
+<br>
+
+**(c)** 
+```{r, echo=FALSE}
+#finding mean and standard deviation for each variable
+
+#mpg
+m1=mean(mpg)
+s1=sd(mpg)
+
+#displacement
+m2=mean(displacement)
+s2=sd(displacement)
+
+#horsepower
+m3=mean(horsepower)
+s3=sd(horsepower)
+
+#weight
+m4=mean(weight)
+s4=sd(weight)
+
+#acceleration
+m5=mean(acceleration)
+s5=sd(acceleration)
+
+#year
+m6=mean(year)
+s6=sd(year)
+
+#origin
+m7=mean(origin)
+s7=sd(origin)
+```
+
+```{r,echo=FALSE}
+#Adding in statements to explain what the mean and sd is for each variable
+
+cat('The mean for mpg is' ,m1, ' and the sd is',s1,'\n')
+cat('The mean for displacement is' ,m2, ' and the sd is',s2,'\n')
+cat('The mean for horsepower is' ,m3, ' and the sd is',s3,'\n')
+cat('The mean for weight is' ,m4, ' and the sd is',s4,'\n')
+cat('The mean for acceleration is' ,m5, ' and the sd is',s5,'\n')
+cat('The mean for year is' ,m6, ' and the sd is',s6,'\n')
+cat('The mean for origin is' ,m7, ' and the sd is',s7,'\n')
+```
+
+<br>
+
+**(d)**
+
+```{r}
+#removing rows as wanted from textbook
+RemoveRowsData=AutoNew[-c(10:84),]
+```
+
+```{r,echo=FALSE}
+#creating function to display the mean, sd, range for each variable in new subset
+Temp=function(var1,var2){
+  m=mean(var1)
+  sd1=sd(var1)
+  ranger=range(var1)
+  srt=as.character(var2)
+  cat('The mean for',srt,'is' ,m, ', the sd is',sd1, 'and the range is',ranger,'\n')
+}
+Temp(RemoveRowsData$mpg,"mpg")
+Temp(RemoveRowsData$displacement,"displacement")
+Temp(RemoveRowsData$horsepower,"horsepower")
+Temp(RemoveRowsData$weight,"weight")
+Temp(RemoveRowsData$acceleration,"acceleration")
+Temp(RemoveRowsData$year,"year")
+Temp(RemoveRowsData$origin,"origin")
+
+```
+
+<br>
+
+**(e)**
+```{r}
+#Pairs plot
+pairs(~mpg+displacement+horsepower+weight+acceleration+year+origin, data=AutoNew)
+```
+
+There is positive linear correlation among some of the predictors such as displacement and horsepower, horsepower and weight, and lastly displacement and weight. 
+
+<br>
+
+**(f)**
+There appears to be multiple predictors that seem to have a negative correlation with mpg such as displacement, horsepower and weight. It could be possible to predict mpg with those variables. 
+
+
+## Problem 2: nonISLR analyzing data
+
+```{r}
+#loading in data
+Parasite=read.table('/Users/admin/Documents/Csvv/CodParasite.txt',header=TRUE)
+```
+
+```{r}
+#preforming log transformation on 2nd column 
+Parasite$Intensity=Parasite[,2]+1
+Parasite$Intensity=log(Parasite[,2])
+```
+
+
+```{r}
+#creating function to make boxplots 
+BP=function(C1,C2,strC2){
+  str=as.character(strC2)
+  boxplot(C1~C2,data=Parasite,xlab= str,ylab="Intensity (# of Parasites)",main="Boxplot")
+}
+
+BP(Parasite$Intensity,Parasite$Area,"Area")
+BP(Parasite$Intensity,Parasite$Sex,"Sex")
+BP(Parasite$Intensity,Parasite$Stage,"Stage")
+BP(Parasite$Intensity,Parasite$Year,"Year")
+
+```
+
+The box plot of Area shows the most association to intensity compared to the other variables. According to the plot most of the data in the different areas from 1 to 3 are skewed and have possible multiple outliers. Area 4 shows an increase in median, since the data is more spread out. The plots do have overlap but some are longer than others. 
+
+The box plot for years also seems to have a bit of an association with intensity as the year 2000 seems to have have increased, then in 2001 the median fell.
+
+
+## Problem 3, nonISLR analyzing data
+
+```{r}
+#loading in data
+Owls=read.table('/Users/admin/Documents/Csvv/Owls.txt',header=TRUE)
+```
+
+<br>
+
+**(a)**
+
+```{r}
+#Factoring categorical variables 
+Owls$SexParent=as.factor(Owls$SexParent)
+Owls$FoodTreatment=as.factor(Owls$FoodTreatment)
+```
+
+
+```{r}
+#attaching data
+attach(Owls)
+sapply(Owls,class)
+```
+
+
+```{r}
+#creating boxplots
+boxplot(NegPerChick~SexParent)
+boxplot(NegPerChick~FoodTreatment)
+boxplot(NegPerChick~SexParent+FoodTreatment+FoodTreatment*SexParent,data=Owls)
+```
+
+<br>
+
+**(b)**
+```{r}
+boxplot(NegPerChick~Nest)
+```
+
+<br>
+
+There are differences for Neg per chick across the various nesting sites. 
+
+**(c)**
+```{r}
+plot(NegPerChick~SiblingNegotiation)
+```
+
+<br>
+
+Yes,there is an association between these features as it seems like negperchick increases as sibling negation increases. 
+
+<br>
+
+**(d)**
+```{r}
+#Log transformation for graphing purposes 
+Owls$SiblingNegotiation=Owls[,5]+1
+Owls$SiblingNegotiation=log(Owls[,5])
+plot(Owls$SiblingNegotiation~Owls$ArrivalTime)
+```
+
+
+
+
