@@ -1,0 +1,294 @@
+---
+title: "Homework 3"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+Emily Mendez
+
+### Problem 1
+Examining German Credit dataset in asc file, all columns are German so translating to english. We are interested in the kredit column as our response. 
+
+
+<br>
+
+
+**(a)**
+
+\newline
+
+```{r}
+#loading in data
+SGCreditData=read.table('/Users/admin/Documents/Csvv/SouthGermanCredit.asc',header=TRUE,sep = "")
+```
+
+<br>
+
+```{r ColNames}
+#creating a function to rename columns to English 
+ColeN=colnames(SGCreditData)
+NColN=c("status","Duration","credit_history","Purpose","Amount","savings","employment_duration","installment_rate","Personal_status_sex","Other_debtors","Present_residence","Property","age","Other_installment_plans","housing","Number_credits","job","People_liable","telephone","foreign_worker","Credit_risk")
+
+NewColName=function(var1,var2){
+  ColName=as.character(var1)
+  NewNam=as.character(var2)
+  colnames(SGCreditData)[colnames(SGCreditData)== ColName] = NewNam
+  return(SGCreditData)
+}
+
+NewSGCData=NewColName(ColeN,NColN)
+
+```
+
+<br>
+
+```{r,echo=FALSE}
+#Showing data
+attach(NewSGCData)
+head(NewSGCData)
+```
+
+\newline
+
+```{r testing/training}
+library(caret)
+# creating testing and validation data partition 
+trainIdx=createDataPartition(Credit_risk,p=0.7,list = FALSE, times = 1)
+trainDF=NewSGCData[trainIdx,]
+testDF=NewSGCData[-trainIdx,]
+
+```
+
+
+<br>
+
+**(b)**
+
+\newline
+
+```{r}
+#creating full logistic regression with credit_risk as our response 
+logit_full=glm(Credit_risk~. ,data=trainDF, family = "binomial")
+summary(logit_full)
+```
+
+\newline
+
+There are only a couple variables with a significant pvalue, the pvalue we will be using is $0.05$ therefore, the variables that will be included in my reduced model will be status,Duration,  credit_history, savings, installment_rate and Personal status sex.
+
+
+\newline
+
+
+
+```{r}
+#creating reduced logistic regression with credit_risk as our response with significant variables
+logit_reduced=glm(Credit_risk~ status + Duration + credit_history+ savings +  installment_rate+ Personal_status_sex, data=trainDF, family = "binomial")
+summary(logit_reduced)
+```
+
+\newline 
+
+<br>
+
+**(c)**
+
+\newline
+
+```{r}
+#loading in library for ROC curve
+library(pROC)
+```
+
+<br>
+
+```{r}
+#plotting ROC curve
+roc_full_training= roc(trainDF$Credit_risk,logit_full$fitted.values,plot=TRUE, print.auc=TRUE, 
+                       col="green", lwd =4, legacy.axes=TRUE, 
+                       main="ROC Curves for Full and Reduced Model (Train Data)")
+
+roc_reduced_training = roc(trainDF$Credit_risk, logit_reduced$fitted.values, plot=TRUE,
+                           print.auc=TRUE, col="blue",lwd = 4, print.auc.y=0.4, legacy.axes=TRUE,  
+                           add=TRUE)
+
+legend("bottomright", legend=c("Full Model", "Reduced Model"), col=c("green", "blue"), lwd=4)
+  
+  
+  
+```
+
+\newline 
+
+The full model gives us better predictions than the reduced but could be over fitted due to being training data. 
+
+
+<br>
+
+```{r}
+#predicting full and reduced models
+pred_full = predict(logit_full, newdata=testDF, type="response")
+
+pred_reduced = predict(logit_reduced,newdata=testDF, type="response")
+
+```
+
+<br>
+
+```{r}
+#plotting roc curve based on validation data
+
+roc_full_test = roc(testDF$Credit_risk, pred_full, plot=TRUE, print.auc=TRUE, col="green",  
+               lwd =4, legacy.axes=TRUE, main="ROC Curves for Full and Reduced Model (Test Data)")
+
+roc_reduced_test = roc(testDF$Credit_risk, pred_reduced, plot=TRUE, print.auc=TRUE, col="blue",
+               lwd = 4, print.auc.y=0.4, legacy.axes=TRUE, add=TRUE)
+
+legend("bottomright", legend=c("Full Model", "Reduced Model"), col=c("green", "blue"), lwd=4)
+
+```
+
+\newline
+
+Both models have approximately similar AUC. There is little underfitting on the training data. Because our models are of similar performance on the AUC, we have good accuracy and our reduced model doesn't affect the predictive power much. 
+
+\newline
+
+<br>
+
+### Problem 2
+
+
+**LDA**
+
+\newline
+
+```{r}
+#loading in library for LDA and QDA
+library(MASS)
+```
+
+<br>
+
+```{r}
+#LDA Full
+lda.fit=lda(Credit_risk~., data=trainDF)
+lda.fit
+```
+
+<br>
+
+```{r}
+#LDA reduced
+lda.fit.reduced=lda(Credit_risk~ status + Duration + credit_history+ savings +  installment_rate+ Personal_status_sex, data=trainDF)
+lda.fit.reduced
+```
+
+<br>
+
+```{r}
+#LDA Confusion Matrix full 
+pLda=predict(lda.fit,testDF)
+conf=table(pLda$class,testDF$Credit_risk)
+conf
+```
+
+<br>
+
+```{r}
+#Accuracy of LDA model full 
+mean(pLda$class == testDF$Credit_risk)
+```
+
+<br>
+
+```{r}
+#predict reduced
+Reduced_lda=predict(lda.fit.reduced,testDF)
+
+```
+
+<br>
+
+```{r}
+#Receiver Operating Characteristic Curve for full and reduced LDA model
+roc_full_lda = roc(testDF$Credit_risk , pLda$posterior[,2], plot=TRUE, print.auc=TRUE, 
+               col="red", lwd =4, legacy.axes=TRUE, main="ROC Curve LDA Model")
+
+roc_reduced_lda = roc(testDF$Credit_risk , Reduced_lda$posterior[,2], plot=TRUE, print.auc=TRUE, 
+               col="purple", lwd =4,  print.auc.y=0.4, legacy.axes=TRUE, add=TRUE)
+
+legend("bottomright", legend=c("Full Model", "Reduced Model"), col=c("red", "purple"), lwd=4)
+
+```
+
+<br>
+
+**QDA**
+
+```{r}
+#Quadratic Discriminant Analysis: Full Model
+qda.fit=qda(Credit_risk~., data=trainDF)
+qda.fit
+```
+
+
+<br>
+
+```{r}
+#Quadratic Discriminant Analysis: Reduced Model
+qda.fit.reduced=qda(Credit_risk~ status + Duration + credit_history+ savings +  installment_rate+ Personal_status_sex, data=trainDF)
+qda.fit.reduced
+```
+
+<br>
+
+```{r}
+#Confusion Matrix for Full QDA model
+pred.qda=predict(qda.fit,testDF)
+confM=table(pred.qda$class,testDF$Credit_risk)
+confM
+```
+
+<br>
+
+```{r}
+#Accuracy of full QDA model
+mean(pred.qda$class == testDF$Credit_risk)
+```
+
+<br>
+
+```{r}
+#reduced predict for reduced QDA model 
+Reduced_qda=predict(qda.fit.reduced,testDF)
+```
+
+<br>
+
+```{r}
+#Receiver Operating Characteristic Curve for full and reduced QDA models
+
+roc_full_qda = roc(testDF$Credit_risk , pred.qda$posterior[,2], plot=TRUE, print.auc=TRUE, 
+               col="red", lwd =4, legacy.axes=TRUE, main="ROC Curve QDA Model")
+
+roc_reduced_qda= roc(testDF$Credit_risk , Reduced_qda$posterior[,2], plot=TRUE, print.auc=TRUE, 
+               col="purple", lwd =4,  print.auc.y=0.4, legacy.axes=TRUE, add=TRUE)
+
+legend("bottomright", legend=c("Full Model", "Reduced Model"), col=c("red", "purple"), lwd=4)
+
+
+
+```
+
+<br>
+
+**In conclusion** : The Accuracy of the QDA model is lower than the LDA model. The AUC of the QDA reduced model and the full model are approximately similar, so there appears to be similar performance in determining the AUC. Therefore, the reduced model doesnt really take away any significant predictive power in the model in QDA. 
+
+The AUC of the LDA full model and reduced model is also similar. AUC of the Logistic models for testing is approximately from the range 0.81 to 0.79. Overall they are all very somewhat similar in testing, but for overall performance on the ROC curve the logistic regression full model does best. 
+
+
+
