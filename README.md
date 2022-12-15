@@ -1,5 +1,8 @@
-# STA-ISLR-HW
-Homework from Statistical Foundations of Data Science and Artificial Intelligence I and statistical learning some questions from the ISLR. 
-Other Homworks are from Computer processing of Stat Data
+# Data Analysis Work 
 
-Note: Most questions are given by my professor, so I will mostly be explaining what I am doing.
+This repository is dedicated to most of the work I have done in classes listed below. This includes Loading in data, preparing data, data partitioning, fitting data to various models, and analyzing the results. 
+
+- Statistical Foundations of Data Science and Artificial Intelligence I 
+- Statistical Learning
+- Computer processing of Statistical Data
+
