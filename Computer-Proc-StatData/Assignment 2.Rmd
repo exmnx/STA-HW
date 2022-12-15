@@ -1,0 +1,566 @@
+---
+title: "Assignment 2 STA4102"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+Emily 
+
+## Question 1
+
+```{r}
+#Loading in data
+traindf=read.csv("/Users/admin/Documents/Csvv/train1.csv",header = T,stringsAsFactors = T)
+testdf=read.csv("/Users/admin/Documents/Csvv/test1.csv",header = T,stringsAsFactors = T)
+
+```
+
+<br>
+
+```{r}
+#loading in libraries 
+library(leaps)
+library(xgboost)
+library(rpart)
+library(rpart.plot)
+library(randomForest)
+library(dplyr)
+library(Metrics)
+```
+
+
+<br>
+
+```{r}
+#merging the two subsets into one whole temporary Dataframe 
+tempdf=bind_rows(traindf,testdf)
+```
+
+
+<br>
+```{r}
+#Seeign dimensions 
+dim(traindf)
+dim(testdf)
+dim(tempdf)
+```
+
+
+<br>
+
+```{r}
+#creating a temporary variable to find Na values by columns
+ColNas=colSums(is.na(tempdf))
+```
+
+
+<br>
+
+```{r}
+#Creating Dataframe to find which # column the NA values are in to remove
+Nadf=cbind(ColNas,seq(1,length(colnames(tempdf)),by=1))
+Nadf=as.data.frame(Nadf)
+
+```
+
+
+<br>
+
+```{r}
+#finding which columns have na values 
+Nadf[which(Nadf$ColNas>0),]
+```
+
+
+<br>
+
+```{r}
+#removing Na values from whole dataset
+NoNadf=tempdf[,-c(7,58,59,60,61,64,65,73,74,75)]
+NoNa.df=na.omit(NoNadf)
+```
+
+
+<br>
+
+```{r}
+str(NoNa.df)
+```
+
+
+<br>
+
+```{r}
+#getting training and testing dataset again
+Training=NoNa.df[which(NoNa.df$Id<length(traindf$Id)),]
+Testing=NoNa.df[-which(NoNa.df$Id<length(traindf$Id)),]
+
+```
+
+
+<br>
+
+```{r}
+dim(Training)
+dim(Testing)
+
+```
+
+
+<br>
+
+```{r}
+#creating dummy variables in model to apply subset selection
+train_mat=model.matrix(SalePrice~., data=Training)
+training_x=as.data.frame(train_mat)
+
+#Getting response training variable
+training_y=Training[,length(colnames(Training))]
+
+```
+
+
+<br>
+
+```{r}
+test_mat=model.matrix(SalePrice~., data=Testing)
+testing_x=as.data.frame(test_mat)
+
+#Getting response testing variable
+testing_y=Testing[,length(colnames(Testing))]
+```
+
+
+<br>
+
+```{r}
+dim(training_x)
+dim(testing_x)
+```
+
+
+<br>
+
+**Selecting variables for the models to use**
+
+<br>
+
+```{r}
+#using forward selection 
+frdreg = regsubsets(SalePrice~., data=Training,nvmax = 10,method="forward")
+reg.summary = summary(frdreg)
+coef(frdreg, 10)
+```
+
+<br>
+
+The 10 variables we are chosing to build our models are 
+
+\newline
+
+1. MSSubClass
+2. NeighborhoodNPkVill
+3. NeighborhoodNWAmes
+4. NeighborhoodSWISU
+5. YearRemodAdd
+6. RoofStyleHip
+7. BsmtFinType1Unf
+8. BsmtUnfSF
+9. FunctionalMin1
+10. SaleTypeCon
+
+<br>
+
+**Part A**: <br>
+Building a multiple linear regression model
+
+```{r}
+lin.reg=lm(Training$SalePrice~ MSSubClass + NeighborhoodNPkVill + NeighborhoodNWAmes + NeighborhoodSWISU + YearRemodAdd + RoofStyleHip + BsmtFinType1Unf + BsmtUnfSF + FunctionalMin1 + SaleTypeCon, 
+           data=training_x)
+```
+
+
+<br>
+
+
+```{r}
+lin.pred=predict(lin.reg,newdata = testing_x)
+MSE = (mean(testing_y - lin.pred)^2)
+RMSE = sqrt(MSE)
+RMSE
+```
+
+<br>
+The RMSE is 86.86
+
+<br>
+
+**Part B**: <br>
+Bulding a decision tree model with the 10 variables
+
+```{r}
+SalesM1=rpart(Training$SalePrice~ MSSubClass + NeighborhoodNPkVill + NeighborhoodNWAmes + NeighborhoodSWISU + YearRemodAdd + RoofStyleHip + BsmtFinType1Unf + BsmtUnfSF + FunctionalMin1 + SaleTypeCon, 
+           data=training_x)
+prp(SalesM1)
+```
+
+<br>
+
+```{r}
+Tree.Pred = predict(SalesM1, newdata=testing_x)
+MSE1 = mean( (testing_y - Tree.Pred)^2)
+RMSE1 = sqrt(MSE1)
+RMSE1
+
+RMSE.tp=rmse(actual= testing_y, predicted = Tree.Pred)
+RMSE.tp
+
+```
+
+<br>
+
+The RMSE is 55467.37 for this model.
+
+<br>
+
+**Part C**: <br>
+Fitting a Random Forest model using the 10 variables selected
+
+```{r}
+Regr = randomForest( x = training_x ,y=training_y ,ntree=1000)
+```
+
+<br>
+```{r}
+RandomForest_Pred = predict(Regr,newdata=testing_x)
+```
+
+<br>
+
+```{r}
+MSE2 = mean( ( testing_y - RandomForest_Pred )^2 )
+RMSE2 = sqrt(MSE2)
+RMSE2
+
+RMSE.tp1=rmse(actual= testing_y, predicted = RandomForest_Pred)
+RMSE.tp1
+```
+
+<br>
+The RMSE is 70595.49.
+
+<br>
+
+**Part D**: <br>
+XGBoost
+
+```{r}
+param=list( eta=0.4, subsample=0.5, max_depth=4)
+xgb.fit = xgboost(as.matrix(training_x), label = training_y, params=param ,nrounds=100,  verbose=0 )
+
+```
+
+<br>
+
+```{r}
+pre.xg=predict(xgb.fit , newdata= as.matrix(testing_x))
+MSE3 = mean( ( testing_y - pre.xg )^2 )
+RMSE3 = sqrt(MSE3)
+RMSE3
+
+RMSE.tp2=rmse(actual= testing_y, predicted = pre.xg)
+RMSE.tp2
+
+```
+<br>
+
+The RMSE is 74446.54 for the XGBoost model. 
+
+<br>
+
+**Part E**: <br>
+Eta: the learning rate is a parameter that you can change which will affect your RMSE and the Max depths.
+
+<br>
+
+**Part F**: <br>
+The RMSE increases as we go through the different types of models. The sales prediction is better predicted with a simple linear regression as the RMSE is the lowest in the model. As we continue to use complex models the error increases.
+
+<br>
+
+## Question 2 
+
+```{r}
+#Loading in Data 
+PokemonData=read.csv("/Users/admin/Documents/Csvv/pokemon.csv",stringsAsFactors = T, header=T, na.strings = "n/a", " ",sep=",")
+```
+
+
+```{r}
+#loading in libraries 
+library(caret)
+library(rpart)
+library(rpart.plot)
+library(randomForest)
+library(tree)
+library(xgboost)
+```
+
+
+<br>
+
+
+```{r}
+str(PokemonData)
+
+```
+
+
+<br>
+
+```{r}
+#Checking which column has Nas
+cbind(colSums(is.na(PokemonData)),seq(1,length(colnames(PokemonData)),by=1))
+
+```
+
+<br>
+
+```{r}
+PokemonData[,16]
+```
+
+<br>
+
+```{r}
+#finding the frequency of numbers in this column 
+tb=table(PokemonData[,16])
+sum(tb)
+tb
+
+```
+
+<br>
+
+```{r}
+#How many NA values we have 
+len=sum(is.na(PokemonData$Pr_Male))
+len
+
+```
+
+<br>
+
+```{r}
+#Getting data to impute 
+set.seed(123)
+sam=c(0,0.125,0.25,0.5,0.75,0.875,1)
+p=c(23/644,2/644,22/644,458/644,19/644,101/644,19/644)
+x=sample(sam,len,prob=p,replace = T)
+x
+
+```
+
+<br>
+
+```{r}
+colsNa=which(is.na(PokemonData$Pr_Male))
+colsNa
+
+```
+
+<br>
+
+```{r}
+PokemonData$Pr_Male[colsNa]
+
+```
+
+<br>
+
+```{r}
+#imputting data 
+PokemonData$Pr_Male[colsNa]=x
+sum(is.na(PokemonData$Pr_Male))
+
+```
+<br>
+
+```{r}
+PokemonData=PokemonData[,-c(1)]
+```
+
+
+<br>
+
+
+**Part A**
+
+```{r}
+#Creating a data partition, making test and train set
+set.seed(12)
+trainIdx=createDataPartition(PokemonData$Type_1, p=0.7, list=FALSE, times=1)
+trainingDf=PokemonData[ trainIdx ,-c(1) ]
+testingDf=PokemonData[-trainIdx ,-c(1)] 
+
+```
+
+<br>
+
+**Decision Tree**
+
+```{r}
+Poke1=rpart(Type_1~. ,data=trainingDf)
+prp(Poke1) 
+```
+
+<br>
+
+```{r}
+#Prediction model 
+Tree.pred=predict(Poke1,newdata=testingDf,type = "class")
+
+```
+
+
+```{r}
+#accuracy
+mean(Tree.pred == testingDf$Type_1)
+
+```
+
+<br>
+
+```{r}
+#Confusion matrix 
+confusionMatrix(table(Tree.pred,testingDf$Type_1))
+
+```
+
+<br>
+
+The overall accuracy is 51% so it is better at predicting the type of Pokemon than randomly guessing. This model predicts the type of bug pokemon the best due to the high percentage of true positives and true negatives it gets right, another type this model is accurate at predicting is water type Pokemon.  
+
+<br>
+
+**Random Forest Model**
+
+```{r}
+#Random Forest Model 
+Rf.m1=randomForest(Type_1~.,data=trainingDf)
+```
+
+
+```{r}
+summary(Rf.m1)
+```
+
+<br>
+
+```{r}
+RandForest.pred=predict(Rf.m1,newdata=testingDf,type = "class")
+mean(RandForest.pred == testingDf$Type_1)
+```
+
+<br>
+
+
+```{r}
+confusionMatrix(table(RandForest.pred,testingDf$Type_1))
+
+```
+
+<br>
+
+The overall accuracy is 64% so it is better at predicting the type of pokemon more than the decision tree model.This model predicts more pokemon types more accurately as seen on the statistics by class section such as bug, fighting, fire, ghost, grass, etc. 
+
+<br>
+
+**XGBoost Model**
+
+```{r}
+
+newTrainTemp=model.matrix(~. ,data=trainingDf)
+newTestTemp=model.matrix(~. ,data=testingDf)
+
+```
+
+<br>
+
+```{r}
+trainingLables=as.integer(trainingDf$Type_1)-1
+testingLables=as.integer(testingDf$Type_1)-1
+
+newTrain=newTrainTemp[,-c(1,2:18)]
+newTest=newTestTemp[,-c(1:18)]
+
+```
+
+<br>
+
+
+```{r}
+
+xgb.train = xgb.DMatrix(data=as.matrix(newTrain),label=trainingLables)
+xgb.test = xgb.DMatrix(data=as.matrix(newTest),label=testingLables)
+
+```
+
+
+<br>
+
+
+```{r}
+param1=list( eta=0.3, subsample=0.5, max_depth=4)
+```
+
+<br>
+
+
+```{r}
+
+xgb.fit1 = xgboost( xgb.train , label = trainingLables,params=param1,nrounds=500,num_class = 18, objective= "multi:softmax",
+                    verbose = 0, verbosity = 0)
+```
+
+<br>
+
+
+```{r}
+
+pre.xg1=predict(xgb.fit1, newdata = xgb.test)
+
+```
+
+<br>
+
+```{r}
+fact=seq(0,17,by=1)
+confusionMatrix(table(factor(pre.xg1,fact),factor(testingLables,fact)))
+
+```
+
+<br>
+
+
+```{r}
+#levels represent 
+lev01=levels(testingDf$Type_1)
+cbind(lev01,seq(0,17,by=1))
+
+
+```
+
+<br>
+
+The overall accuracy is 53% so it is better than the decision tree but in this case not better than the random forest model. Like the other models this one predicts bug types well, and Grass types, etc. 
+
+<br>
+
+
+
+
+
