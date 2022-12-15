@@ -1,0 +1,298 @@
+---
+title: "STA 4364 HW4"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+Emily 
+
+<br>
+
+## Information: 
+
+Predicting tumor type from gene expression data. We will build a multinomial regression model with l1 and l2. 
+
+\newline
+
+## Part a 
+
+```{r}
+#loading in datasets
+
+GeneData=read.csv('/Users/admin/Documents/Csvv/gene_data.csv',header=TRUE)
+GeneLabels=read.csv('/Users/admin/Documents/Csvv/gene_labels1.csv',header=TRUE,
+                    stringsAsFactors = TRUE)
+
+
+```
+
+<br>
+
+```{r}
+#loading in libraries 
+library(glmnet)
+library(stats)
+library(caret)
+library(dplyr)
+
+```
+
+<br>
+
+```{r}
+#looking for NAs in coloumns 
+sum(is.na(GeneData))
+
+```
+
+<br>
+
+```{r}
+#Finding variance from columns and removing variance with less than 0.001
+#NumericCol=GeneData[sapply(GeneData,is.numeric)]
+
+VarianceCol=sapply(GeneData,var)
+removeVar=which(VarianceCol<0.001)
+NewGeneData=GeneData[,-removeVar]
+
+```
+
+<br>
+
+
+```{r}
+# Standardize each gene predictor column to have mean 0, and sd 1.
+StdGeneData=
+    NewGeneData[2:dim(NewGeneData)[2]]  %>%
+ mutate_all(~(scale(.) %>% as.vector))
+```
+
+<br>
+
+```{r}
+#Add in X Col to merge the datasets 
+StdGeneData$X=rep(0,length(StdGeneData$gene_0))
+StdGeneData$X=NewGeneData$X
+
+```
+
+
+<br>
+
+```{r}
+#merge the datasets 
+GeneDataFull=merge(StdGeneData,GeneLabels, by="X",all=TRUE)
+GeneDataFull=GeneDataFull[,-c(1)]
+str(GeneDataFull)
+
+```
+
+<br>
+
+```{r}
+#splitting data into training and testing
+n_train_samps = ceiling(0.75 * nrow(GeneDataFull))
+train_inds = sample(1:nrow(GeneDataFull), n_train_samps, replace=FALSE)
+val_inds = setdiff(1:nrow(GeneDataFull), train_inds)
+```
+
+<br>
+
+```{r}
+# train set 
+Gene_x_train = GeneDataFull[train_inds, 1:(ncol(GeneDataFull)-1)] # no last col
+Gene_x_train_mat =as.matrix(Gene_x_train)
+
+Gene_y_train = GeneDataFull[train_inds,ncol(GeneDataFull)] # last column
+
+```
+
+<br>
+
+```{r}
+# test set
+Gene_x_val = GeneDataFull[val_inds, 1:(ncol(GeneDataFull)-1)] # no last col
+Gene_y_val = GeneDataFull[val_inds,ncol(GeneDataFull)] # last column
+```
+
+<br>
+
+##Part b
+
+\newline
+
+Ridge Logistic Regression with 10 fold CV
+
+```{r}
+#Creating a ridge logistic regression model with 10 fold CV
+gene.ridge=cv.glmnet(x=Gene_x_train_mat, y=Gene_y_train, nfolds = 10,
+                     alpha=0,family = "multinomial")
+```
+
+<br>
+
+```{r}
+#plotting coefficients
+plot(gene.ridge$glmnet.fit, label=TRUE)
+```
+
+<br>
+
+
+```{r}
+#plotting CV error 
+plot(gene.ridge)
+```
+\newline 
+
+<br>
+
+```{r}
+#Finding best lambda value
+bestlam=gene.ridge$lambda.min
+bestlam
+```
+
+<br>
+
+```{r}
+#creating prediction model on the feature validation set
+ridge.pred = predict(gene.ridge, s =bestlam, newx = as.matrix(Gene_x_val) , type="class")
+
+```
+
+<br>
+
+```{r}
+#making confusion matrix from prediction model and testing response set
+confusionMatrix(table(ridge.pred,Gene_y_val))
+```
+
+<br>
+
+##Part c
+
+\newline
+
+LASSO Logistic Regression with 10 fold CV
+
+```{r}
+#creating Lasso model
+gene.lasso = cv.glmnet(x=Gene_x_train_mat, y=Gene_y_train, nfolds = 10,
+                     alpha=1,family = "multinomial")
+
+```
+
+<br>
+
+```{r}
+#Optimal value of lambda
+bestlamLasso=gene.lasso$lambda.min
+```
+
+
+```{r}
+#Prediction model using feature testing set
+lasso.pred=predict(gene.lasso, s =bestlamLasso, newx = as.matrix(Gene_x_val),type="class")
+
+```
+
+
+```{r}
+#confusion matrix
+confusionMatrix(table(lasso.pred,Gene_y_val))
+
+```
+
+<br>
+
+## Part d
+
+```{r}
+
+lasso.coef = predict(gene.lasso, as.matrix(Gene_x_val), type ="coefficients", s = bestlamLasso)
+```
+
+
+```{r}
+#genes associated with BRCA 
+which(coef(gene.lasso)$BRCA>0)
+```
+
+<br>
+
+
+```{r}
+#genes associated with COAD
+which(coef(gene.lasso)$COAD>0)
+```
+
+
+<br>
+
+```{r}
+#genes associated with KIRC
+which(coef(gene.lasso)$KIRC>0)
+```
+
+<br>
+
+```{r}
+#genes associated with LUAD
+which(coef(gene.lasso)$LUAD>0)
+```
+
+<br>
+
+```{r}
+#genes associated with PRAD
+which(coef(gene.lasso)$PRAD>0)
+
+```
+
+<br>
+
+**Top 20 Relevant Genes **:
+
+\newline
+
+1. Gene 1857
+2. Gene 9150
+3. Gene 15835 
+4. Gene 18328 
+5. Gene 357 
+6. Gene  6590
+7. Gene 219
+8. Gene  9892 
+9. Gene 220
+10. Gene 11973 
+11. Gene 3735
+12. Gene 3438 
+13. Gene 18455
+14. Gene 2827
+15. Gene  5560
+16. Gene 13770
+17. Gene 14042
+18. Gene 6714
+19. Gene 17844
+20. Gene 13251
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
