@@ -1,0 +1,654 @@
+---
+title: "Assignment 3"
+author: "Emily M"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Loading in Libraries
+
+```{r}
+library(RSQLite)
+#library(sqldf)
+#Doesnt load after 20 minutes 
+library(DBI)
+library(caret)
+library(randomForest)
+```
+<br>
+
+```{r}
+db=dbConnect(SQLite(), ":memory:")
+
+```
+
+<br>
+
+
+## Loading in Dataset
+**Part A**
+
+```{r}
+GDP = read.csv("/Users/admin/Documents/Csvv/GDP.csv",header = FALSE)
+              
+GEP = read.csv("/Users/admin/Documents/Csvv/GEP_Data.csv",header = FALSE)
+```
+
+<br>
+
+
+```{r, No library }
+
+#GDP.contents = read.csv.sql("/Users/admin/Documents/Csvv/GDP.csv", 
+ #            sql = "select * from file")
+
+#GEP.contents = read.csv.sql("/Users/admin/Documents/Csvv/GEP_Data.csv", 
+ #            sql = "select * from file")
+
+```
+
+
+
+```{r}
+#Creating Col names
+GDPNames=c("CountryCode", "CountryName", "gdp")
+GEPNames=c("CountryName", "CountryCode", "2001", "2002", "2003", "2004", "2005", "2006", "2007", "2008",
+           "2009", "2010", "2011", "2012", "2013", "2014", "2015", "2016", "2017", "2018")
+
+```
+
+<br>
+
+```{r}
+#Assigning names to columns 
+colnames(GDP)=GDPNames
+colnames(GEP)=GEPNames
+
+```
+
+<br>
+
+
+## SQLite
+
+```{r}
+dbWriteTable(db, "GDP", GDP)
+dbWriteTable(db, "GEP", GEP)
+
+```
+
+<br>
+
+```{r}
+#GDP Data successfully loaded in SQLite
+head(dbReadTable(db, "GDP"))
+```
+
+<br>
+
+```{r}
+#GEP Data successfully loaded in SQLite
+head(dbReadTable(db, "GEP"))
+
+```
+
+<br>
+
+
+**Part B**
+
+```{r}
+gdpValTemp = dbSendQuery(db, 'SELECT gdp  FROM GDP')
+gdpVal=dbFetch(gdpValTemp)
+```
+<br>
+
+```{r}
+hist(gdpVal$gdp,col="lightblue",main="GDP",xlab = "GDP",border = "red" )
+```
+
+
+<br>
+
+**Part C**
+
+```{r}
+Countries=dbSendQuery(db, 'SELECT *  FROM GEP
+                      Where CountryCode in ("USA","GRC","CHN","GBR","ARG")')
+CountriesData=dbFetch(Countries)
+
+
+```
+<br>
+
+```{r}
+#ARG      
+
+Mean=dbSendQuery(db, 'SELECT Avg("2001"+"2002"+"2003"+ "2004"+ "2005"+ "2006"+ "2007"+ "2008"+
+                     "2009"+ "2010"+ "2011"+ "2012"+ "2013"+ "2014"+ "2015"+ "2016"+ "2017"+ "2018" )/18 As Average
+                      FROM GEP Where CountryCode ="ARG"')
+
+dbFetch(Mean)
+
+```
+\newline 
+The mean GEP for Arg is 3.36
+
+<br>
+
+```{r}
+#CHN
+
+MeanC=dbSendQuery(db, 'SELECT Avg("2001"+"2002"+"2003"+ "2004"+ "2005"+ "2006"+ "2007"+ "2008"+
+                     "2009"+ "2010"+ "2011"+ "2012"+ "2013"+ "2014"+ "2015"+ "2016"+ "2017"+ "2018" )/18 As Average
+                      FROM GEP Where CountryCode ="CHN"')
+
+dbFetch(MeanC)
+
+```
+\newline 
+The mean GEP for China is 9.11
+
+<br>
+
+```{r}
+#GRC
+
+MeanG=dbSendQuery(db, 'SELECT Avg("2001"+"2002"+"2003"+ "2004"+ "2005"+ "2006"+ "2007"+ "2008"+
+                     "2009"+ "2010"+ "2011"+ "2012"+ "2013"+ "2014"+ "2015"+ "2016"+ "2017"+ "2018" )/18 As Average
+                      FROM GEP Where CountryCode ="GRC"')
+
+dbFetch(MeanG)
+
+```
+\newline 
+The mean GEP for Greece is -0.06
+
+
+br>
+
+```{r}
+#GBR
+
+MeanGR=dbSendQuery(db, 'SELECT Avg("2001"+"2002"+"2003"+ "2004"+ "2005"+ "2006"+ "2007"+ "2008"+
+                     "2009"+ "2010"+ "2011"+ "2012"+ "2013"+ "2014"+ "2015"+ "2016"+ "2017"+ "2018" )/18 As Average
+                      FROM GEP Where CountryCode ="GBR"')
+
+dbFetch(MeanGR)
+
+```
+\newline 
+The mean GEP for the UK is 1.86
+
+<br>
+
+```{r}
+#USA
+
+MeanU=dbSendQuery(db, 'SELECT Avg("2001"+"2002"+"2003"+ "2004"+ "2005"+ "2006"+ "2007"+ "2008"+
+                     "2009"+ "2010"+ "2011"+ "2012"+ "2013"+ "2014"+ "2015"+ "2016"+ "2017"+ "2018" )/18 As Average
+                      FROM GEP Where CountryCode ="USA"')
+
+dbFetch(MeanU)
+
+```
+\newline 
+The mean GEP for the USA is 1.897
+
+<br>
+
+
+```{r}
+#plotting the GEP values for the countries 
+Xstr=colnames(CountriesData[,3:20])
+Xvar=as.numeric(Xstr)
+plot(x=Xvar,y=CountriesData[1,3:20], type = "o", col = "ivory3",ylab="GEP",xlab = "Time",ylim = c(-11,15),lwd=2)
+lines(x=Xvar,y=CountriesData[2,3:20], col='darkslategray4', lwd=2,type="o")
+lines(x=Xvar,y=CountriesData[3,3:20], col='cornsilk4', lwd=2,type="o")
+lines(x=Xvar,y=CountriesData[4,3:20], col='darkslategray2', lwd=2,type="o")
+lines(x=Xvar,y=CountriesData[5,3:20], col='red', lwd=2,type="o")
+legend("bottomright", legend=c("ARG", "CHN","GRC","GBR","USA"), col=c("ivory3","darkslategray4","cornsilk4","darkslategray2","red"), lwd=3)
+    
+
+```
+
+<br>
+
+**Part D1**
+
+```{r}
+#Average GDP
+AVGDP=dbSendQuery(db,"SELECT Avg(gdp) FROM GDP" )
+dbFetch(AVGDP)
+```
+
+
+```{r}
+#Selecting Countries with an above average GDP
+CountryGDP=dbSendQuery(db,"SELECT CountryName FROM GDP WHERE gdp > 373841.4")
+dbFetch(CountryGDP)
+
+
+```
+
+
+<br>
+
+**Part E1**
+
+```{r}
+#Selecting Countries with country name starting with "G"
+CountryG=dbSendQuery(db,"SELECT CountryName FROM GDP WHERE CountryName LIKE 'G%' ")
+dbFetch(CountryG)
+
+```
+
+
+<br>
+
+**Part D2**
+
+
+```{r}
+#Joining 2 tables together 
+JoinedData= dbSendQuery(db, 'SELECT * FROM 
+                    GDP LEFT JOIN GEP
+                    ON GDP.CountryCode = GEP.CountryCode')
+JoinedData1=dbFetch(JoinedData)
+
+
+```
+
+
+<br>
+
+**Part E2**
+
+
+```{r}
+#loading in Testing data
+SupplementData=read.csv("/Users/admin/Documents/Csvv/GEPsupplementRecent.csv",header =FALSE)
+SuppNames=c("CountryName", "CountryCode","2011", "2012", "2013", "2014", "2015", "2016", "2017", "2018", "2019", "2020")
+colnames(SupplementData)=SuppNames
+dbWriteTable(db, "GEPSupp", SupplementData)
+
+```
+
+<br>
+
+```{r}
+#Joining Data with GDP
+JoinedDataTemp= dbSendQuery(db, 'SELECT * FROM 
+                    GEP LEFT JOIN GEPSupp
+                    ON GEP.CountryCode = GEPSupp.CountryCode')
+JoinedData2=dbFetch(JoinedDataTemp)
+
+```
+
+<br>
+
+```{r}
+#Finding which countries GEP supplement doesnt have compared to GEP csv
+JoinedData2$CountryName[which(is.na(JoinedData2$`2019`))]
+```
+\newline
+
+By observing which countries the GEP supplement doesnt have we can get rid of these countries as we are trying to predict the GEP values with the observations we already have from the GEP supplement csv.  54 Countries
+
+<br>
+
+```{r}
+GepSupTemp=JoinedData2[-which(is.na(JoinedData2$`2019`)),]
+
+```
+
+
+
+```{r}
+#Fixing Other joined dataset
+JoinedData1$CountryName[which(is.na(JoinedData1$`2001`))]
+```
+\newline
+These are the countries from the GDP  dataset that werent in the GEP dataset. 17 countries 
+
+<br>
+
+```{r}
+#Removing Rows with Nas and repeated columns
+JoinedDataNoNa=JoinedData1[-(which(is.na(JoinedData1$`2001`))),-c(4,5)]
+
+```
+
+<br>
+
+```{r}
+#Comparing the GDP and GEP dataset with supplement dataset
+`%notin%` <- Negate(`%in%`)
+JoinedDataNoNa$CountryName[JoinedDataNoNa$CountryName %notin% GepSupTemp$CountryName] 
+```
+<br>
+
+```{r}
+GepSupTemp$CountryName[GepSupTemp$CountryName %notin% JoinedDataNoNa$CountryName] 
+
+```
+
+
+```{r}
+#Cleaning Data
+JoinedDataMod=JoinedDataNoNa[-c(which(JoinedDataNoNa$CountryName %notin% GepSupTemp$CountryName)),-c(1)]
+GepSup=GepSupTemp[-c(which(GepSupTemp$CountryName %notin% JoinedDataNoNa$CountryName)),-c(1:20,22:26)]
+#could have just merged data earlier
+```
+
+<br>
+
+```{r}
+JoinedDataMod=JoinedDataMod[order(JoinedDataMod$CountryName,decreasing = FALSE),]
+
+```
+
+
+```{r}
+#Partitioning Data
+set.seed(133)
+TrainIdx=createDataPartition(JoinedDataMod$gdp,times = 1,p=0.70,list = FALSE)
+training_x=JoinedDataMod[TrainIdx,]
+training_y=GepSup[TrainIdx,]
+  
+testing_x=JoinedDataMod[-TrainIdx,]
+testing_y=GepSup[-TrainIdx,]
+
+```
+
+<br>
+
+```{r}
+#Building Linear Model Predicting 2017 
+#Full Model
+lin.fit=lm(training_x$`2017`~., data = training_x[,-c(1)])
+summary(lin.fit)
+```
+
+<br>
+
+```{r}
+#Reduced model for Predicting 2018
+lin.fit.red=lm(training_x$`2017`~`2016`+`2018`, data = training_x[,-c(1)])
+summary(lin.fit.red)
+```
+
+<br>
+
+```{r} 
+#Prediction for 2017
+pred.linModel=predict(lin.fit.red,newdata = testing_x)
+m1.MSE = mean( (pred.linModel - as.numeric(testing_y$`2017`))^2 )
+m1.MSE
+
+
+```
+
+<br>
+
+```{r}
+#Predicting 2018 Full Model
+lin.fit.m2=lm(training_x$`2018`~., data = training_x[,-c(1)])
+summary(lin.fit.m2)
+```
+
+<br>
+
+```{r}
+#Predicting 2018 Reduced Model 
+lin.fit.m2.red=lm(training_x$`2018`~`2011`+`2013`+`2015`+`2017`, data = training_x[,-c(1)])
+summary(lin.fit.m2.red)
+
+```
+
+<br>
+
+```{r}
+pred.linModel2=predict(lin.fit.m2.red,newdata = testing_x)
+m2.MSE = mean( (pred.linModel2 - as.numeric(testing_y$`2018`))^2 )
+m2.MSE
+
+```
+
+
+<br>
+
+```{r}
+#Random forest Predicting 2017 
+rf1 = train(`2017`~., method='rf' ,data=training_x[,-c(1)], trControl = trainControl(method = 'cv',number = 3))
+rf1
+
+```
+<br>
+
+
+
+```{r}
+#Random forest Predicting 2017 
+pre.rf=predict(rf1,newdata = testing_x)
+mrf.MSE = mean( (pre.rf - as.numeric(testing_y$`2017`))^2 )
+mrf.MSE
+
+```
+
+
+<br>
+
+```{r}
+#Random forest Predicting 2018 
+rf2 = train(`2018`~., method='rf' ,data=training_x[,-c(1)], trControl = trainControl(method = 'cv',number = 3))
+rf2
+
+
+```
+
+
+
+```{r}
+#Predicting 2018 
+pred.rf1=predict(rf2,newdata = testing_x)
+mrf1.MSE = mean( (pred.rf1 - as.numeric(testing_y$`2018`))^2 )
+mrf1.MSE
+
+
+```
+\newline 
+
+The MSE for predicting 2017 from the supplement data in a linear regression model is 4.22 
+
+\newline 
+
+The MSE for predicting 2017 from the supplement data in a Random Forest model is 4.44
+\newline 
+
+The MSE for predicting 2018 from the supplement data in a linear regression model is 1.56
+
+\newline 
+
+The MSE for predicting 2018 from the supplement data in a Random Forest model is 1.49 
+
+\newline 
+
+The Random Forest model performed better when predicting 2018, but the linear model performed slightly better in predicting 2017. 
+
+\newline 
+
+<br>
+
+**Part F**
+
+```{r}
+#Writing table 
+dbWriteTable(db, "JoinedData", JoinedDataMod)
+```
+
+
+<br>
+
+
+```{r}
+Join= dbSendQuery(db, 'SELECT * FROM 
+                    JoinedData WHERE gdp > (SELECT Avg(gdp)
+                         FROM JoinedData)')
+
+AbvAvGDP=dbFetch(Join)
+```
+
+
+<br>
+
+```{r}
+colname=as.array(AbvAvGDP$CountryName)
+
+rowNum=function(colname1){
+  temp=which(GepSup$CountryName == colname1)
+  return(temp)
+}
+
+sapply(colname,rowNum)
+
+```
+
+<br>
+
+```{r}
+#Manual search
+which(GepSup$CountryName=="Jpan")
+which(GepSup$CountryName=="Russia")
+```
+
+
+```{r}
+#Removing the all other rows 
+RowNm=c(5,17,25,51,52,53,56,73,83,91,93,95,112,117)
+GepSupMod=GepSup[RowNm,]
+
+```
+
+
+<br>
+
+```{r}
+#Partitioning Data
+set.seed(123)
+TrainIdx1=createDataPartition(AbvAvGDP$gdp,times = 1,p=0.60,list = FALSE)
+trainingAA_x=AbvAvGDP[TrainIdx1,]
+trainingAA_y=GepSupMod[TrainIdx1,]
+  
+testingAA_x=AbvAvGDP[-TrainIdx1,]
+testingAA_y=GepSupMod[-TrainIdx1,]
+
+```
+
+<br>
+
+```{r}
+#Reduced model for 2017 
+lin.md.AA=lm(trainingAA_x$`2017`~`2014`+`2018`, data = trainingAA_x[,-c(1)])
+summary(lin.md.AA)
+```
+
+
+```{r}
+#Prediction of 2017 
+pred.2017=predict(lin.md.AA,newdata = testingAA_x)
+mm1.MSE = mean( (pred.2017 - as.numeric(testingAA_y$`2017`))^2 )
+mm1.MSE
+
+```
+
+
+<br>
+
+
+```{r}
+#Reduced model for 2018
+lin.md2.AA=lm(trainingAA_x$`2018`~`2011`+`2015`+`2016`+`2017`,
+              data = trainingAA_x[,-c(1)])
+summary(lin.md2.AA)
+
+```
+
+
+<br>
+
+
+```{r}
+#Prediction of 2018
+pred.2018=predict(lin.md2.AA,newdata = testingAA_x)
+mm2.MSE = mean( (pred.2018 - as.numeric(testingAA_y$`2018`))^2 )
+mm2.MSE
+
+```
+
+<br>
+
+```{r}
+#Random forest Predicting 2018 and 2017
+rfm1 = train(`2017`~., method='rf' ,data=trainingAA_x[,-c(1)], trControl = trainControl(method = 'cv',number = 3))
+rfm2=train(`2018`~., method='rf' ,data=trainingAA_x[,-c(1)], trControl = trainControl(method = 'cv',number = 3))
+
+
+```
+
+
+<br>
+
+```{r}
+#Random Forest 2017 predictions 
+pred.2017.rf=predict(rfm1,newdata = testingAA_x)
+mm3.MSE = mean( (pred.2017.rf - as.numeric(testingAA_y$`2017`))^2 )
+mm3.MSE
+
+```
+
+
+<br>
+
+```{r}
+#Random Forest 2018 predictions 
+pred.2018.rf=predict(rfm2,newdata = testingAA_x)
+mm4.MSE = mean( (pred.2018.rf - as.numeric(testingAA_y$`2018`))^2 )
+mm4.MSE
+```
+\newline 
+
+The MSE for predicting 2017 in the linear regression model is 4.81 
+
+\newline 
+
+The MSE for predicting 2017 in the Random Forest model is 4.37
+\newline 
+
+The MSE for predicting 2018 in the linear regression model is 1.27
+
+\newline 
+
+The MSE for predicting 2018 in the Random Forest model is 0.19 
+
+\newline 
+
+The Random Forest models performed better when predicting. In conclusion, removing the gdps lower than average helped reduce the MSE slightly. 
+
+\newline 
+
+<br>
+
+
+
+
+
+
+
+
+
+
+
