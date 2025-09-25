@@ -7,7 +7,7 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-Emily Mendez
+Emily 
 
 ### Problem 1
 Examining German Credit dataset in asc file, all columns are German so translating to english. We are interested in the kredit column as our response. 
